@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Math Master SINKA - Pecahan Edition</title>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<style>
+:root{
+--bg:#0f172a;--panel:#1e293b;--accent:#38bdf8;
+--ok:#22c55e;--bad:#ef4444;--txt:#f8fafc
+}
+*{box-sizing:border-box}
+body{
+margin:0;font-family:system-ui;background:var(--bg);color:var(--txt);
+display:flex;flex-direction:column;align-items:center;height:100vh;overflow: hidden;
+}
+header{
+width:100%;background:var(--panel);padding:10px;
+display:flex;flex-wrap:wrap;justify-content:space-around;font-weight:bold;border-bottom: 2px solid var(--accent);
+}
+.badge{color:var(--accent)}
+main{flex:1;width:100%;max-width:480px;padding:10px;display:flex;flex-direction:column}
+.box{
+background:#02061755;border:1px dashed var(--accent);
+border-radius:12px;padding:15px;text-align:center;margin-bottom:8px;font-size: 1.1em;
+}
+.pool{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.token{
+background:var(--panel);border:1px solid var(--accent);
+border-radius:8px;padding:12px;font-weight:bold;cursor:pointer;
+user-select: none; transition: 0.2s;
+}
+.token:active{transform:scale(.9);background:var(--accent);color:#000}
+.controls{display:flex;gap:10px;margin-top:8px}
+button{
+flex:1;padding:12px;border:none;border-radius:8px;
+font-weight:bold;cursor:pointer;font-size: 1em;
+}
+.primary{background:var(--ok);color:white}
+.danger{background:var(--bad);color:white}
+.secondary{background:#334155;color:white}
+.overlay{
+position:fixed;inset:0;background:var(--bg);
+display:flex;flex-direction:column;align-items:center;
+justify-content:center;padding:20px;text-align:center;z-index: 100;
+}
+.hidden{display:none}
+select,input{padding:12px;border-radius:8px;width:260px;margin-bottom:12px;border:1px solid var(--accent);background:var(--panel);color:white;font-size: 1em;}
+label{margin-bottom:5px;font-size:0.9em;color:var(--accent);font-weight: bold;}
+</style>
+</head>
+
+<body>
+
+<header>
+<div>LEVEL <span id="hDiff" class="badge">-</span></div>
+<div>MODE <span id="hMode" class="badge">-</span></div>
+<div>LV <span id="hLevel" class="badge">1</span></div>
+<div>⏱ <span id="hTime" class="badge">60</span></div>
+<div>⭐ <span id="hStar" class="badge">0</span></div>
+<div>SKOR <span id="hScore" class="badge">0</span></div>
+</header>
+
+<main>
+<div id="question" class="box">Memuat soal...</div>
+<div id="workspace" class="box" style="min-height: 70px; display: flex; justify-content: center; gap: 5px; flex-wrap: wrap; align-items: center;"></div>
+<div id="pool" class="pool"></div>
+
+<div class="controls">
+<button class="danger" onclick="clearWS()">HAPUS</button>
+<button class="primary" onclick="submit()">SUBMIT</button>
+</div>
+
+<button class="secondary" style="margin-top:10px" onclick="goLobby()">⬅ KEMBALI KE LOBBY</button>
+</main>
+
+<div id="lobby" class="overlay">
+<h1 style="color:var(--accent); margin-bottom: 5px;">MATH MASTER SINKA</h1>
+<p style="margin-bottom: 25px; opacity: 0.8;">Edisi Spesial: Pecahan & Desimal</p>
+
+<label>Tingkat Kesulitan:</label>
+<select id="diffSel">
+<option value="Mudah">Mudah (Dasar)</option>
+<option value="Sedang">Sedang (Menengah)</option>
+<option value="Sulit">Sulit (Lanjut)</option>
+</select>
+
+<label>Mode Soal:</label>
+<select id="modeSel">
+<option value="syntax">Sintaks (Operasi)</option>
+<option value="story">Soal Cerita</option>
+<option value="algebra">Aljabar (Variabel x)</option>
+</select>
+
+<input id="room" placeholder="Kode Room (Opsional)">
+<button class="primary" onclick="start()">MULAI BERMAIN</button>
+</div>
+
+<script>
+// ===== FIREBASE CONFIG =====
+firebase.initializeApp({
+  apiKey: "AIzaSyBJtrSi3qUk1NC2oSXxWj0Rb_DGYg4GgRM",
+  authDomain: "mathmastersinkav1-3.firebaseapp.com",
+  databaseURL: "https://mathmastersinkav1-3-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "mathmastersinkav1-3",
+  storageBucket: "mathmastersinkav1-3.appspot.com",
+  messagingSenderId: "835319223750",
+  appId: "1:835319223750:web:827661475e451bd4330ec7"
+});
+const db = firebase.database();
+
+// ===== STATE =====
+let roomId="", difficulty="", mode="";
+let level=1, score=0, star=0, time=60, timer;
+let selected=[], answer=null, target=null;
+let started=false;
+
+// ===== BANK SOAL PECAHAN =====
+const bank = {
+  Mudah: {
+    syntax: [
+      { q: "Buat hasil = 1/2 + 1/2", t: 1 },
+      { q: "Buat hasil = 4/2", t: 2 },
+      { q: "Buat hasil = 0.5 + 0.5", t: 1 },
+      { q: "Buat hasil = 3/4 - 1/4", t: 0.5 },
+      { q: "Buat hasil = 1/4 + 1/4", t: 0.5 }
+    ],
+    story: [
+      { q: "Ibu punya 1/2 kg gula, beli lagi 1/2 kg. Totalnya?", t: 1 },
+      { q: "Ada 1 pizza, dimakan 1/4 bagian. Sisa bagian?", t: 0.75 },
+      { q: "Setengah dari 10 adalah?", t: 5 }
+    ],
+    algebra: [
+      { q: "x + 1/2 = 1", a: 0.5 },
+      { q: "2x = 1", a: 0.5 },
+      { q: "x - 0.2 = 0.8", a: 1 }
+    ]
+  },
+  Sedang: {
+    syntax: [
+      { q: "Buat hasil = 1/4 + 1/2", t: 0.75 },
+      { q: "Buat hasil = 2/5 × 5", t: 2 },
+      { q: "Buat hasil = 1/2 ÷ 1/2", t: 1 }
+    ],
+    story: [
+      { q: "Ani minum 1/4 liter air, lalu 0.5 liter lagi. Total?", t: 0.75 },
+      { q: "Uang 10rb, dipakai 1/2-nya. Sisa uang?", t: 5 },
+      { q: "Tali 1m dipotong tiap 1/4m. Jadi berapa bagian?", t: 4 }
+    ],
+    algebra: [
+      { q: "1/2x = 5", a: 10 },
+      { q: "3/4x = 3", a: 4 },
+      { q: "x ÷ 2 = 0.5", a: 1 }
+    ]
+  },
+  Sulit: {
+    syntax: [
+      { q: "Buat hasil = (1/2 + 1/4) × 4", t: 3 },
+      { q: "Buat hasil = 0.75 ÷ 1/4", t: 3 },
+      { q: "Buat hasil = 1/2 + 1/3 + 1/6", t: 1 }
+    ],
+    story: [
+      { q: "Tanah 100m, 1/4 kolam, 1/2 taman. Sisa m²?", t: 25 },
+      { q: "Gaji 4jt, 1/5 tabung, 1/2 makan. Sisa (jt)?", t: 1.2 },
+      { q: "Setengah dari sepertiga adalah?", t: 0.16 }
+    ],
+    algebra: [
+      { q: "2x + 0.5 = 2.5", a: 1 },
+      { q: "1/2x + 1/4x = 3", a: 4 },
+      { q: "3(x + 0.5) = 4.5", a: 1 }
+    ]
+  }
+};
+
+// ===== GAME LOGIC =====
+function start(){
+  started=true;
+  difficulty=diffSel.value;
+  mode=modeSel.value;
+  roomId=room.value || "public";
+  
+  lobby.classList.add("hidden");
+  hDiff.textContent=difficulty.toUpperCase();
+  hMode.textContent=mode.toUpperCase();
+  
+  listen();
+  next(); 
+  startTimer();
+}
+
+function listen(){
+  db.ref("rooms/"+roomId).on("value",s=>{
+    const d=s.val(); if(!d) return;
+    hScore.textContent=d.score??score;
+    hStar.textContent=d.star??star;
+    hLevel.textContent=d.level??level;
+    if(d.level) level = d.level;
+  });
+}
+
+function sync(){
+  db.ref("rooms/"+roomId).update({level,score,star});
+}
+
+function startTimer(){
+  clearInterval(timer);
+  time=60; hTime.textContent=time;
+  timer=setInterval(()=>{
+    time--; 
+    hTime.textContent=time;
+    if(time<=0) fail();
+  },1000);
+}
+
+function next(){
+  const poolSoal = bank[difficulty][mode];
+  const q = poolSoal[(level-1) % poolSoal.length];
+  
+  question.textContent = q.q;
+  answer = q.a ?? null; 
+  target = q.t ?? null;
+  hLevel.textContent = level;
+  genPool();
+}
+
+function genPool(){
+  pool.innerHTML=""; workspace.innerHTML=""; selected=[];
+  // Menambahkan simbol . dan / ke karakter dasar
+  let chars = ["0","1","2","3","4","5","6","7","8","9","+","-","*","/","=", "."];
+  
+  if(mode === "algebra") chars.push("x");
+  
+  // Ambil 12 token secara acak
+  chars.sort(()=>Math.random()-.5).slice(0,12).forEach(c=>{
+    let d=document.createElement("div");
+    d.className="token"; d.textContent=c;
+    d.onclick=()=>{selected.push(c);render();}
+    pool.appendChild(d);
+  });
+}
+
+function render(){
+  workspace.innerHTML="";
+  selected.forEach((c,i)=>{
+    let d=document.createElement("div");
+    d.className="token"; d.textContent=c;
+    d.onclick=()=>{selected.splice(i,1);render();}
+    workspace.appendChild(d);
+  });
+}
+
+function submit(){
+  if(!started || selected.length === 0) return;
+  
+  let s = selected.join("");
+  
+  if(mode === "algebra"){
+    // Pengecekan angka desimal atau bulat
+    if(parseFloat(s) === answer) return ok();
+    let clean = s.replace("x=","").replace("x","");
+    if(parseFloat(clean) === answer) return ok();
+    return fail();
+  }
+
+  // Evaluasi matematika untuk Sintaks/Story
+  let formula = s.replace(/×/g,"*").replace(/÷/g,"/");
+  if(!formula.includes("=")) return fail();
+  
+  let [l, r] = formula.split("=");
+  try {
+    let valL = eval(l);
+    let valR = eval(r);
+    // Toleransi sedikit untuk angka desimal (floating point)
+    if(Math.abs(valL - valR) < 0.01 && Math.abs(valL - target) < 0.01) {
+      ok();
+    } else {
+      fail();
+    }
+  } catch { fail(); }
+}
+
+function ok(){
+  score+=10; star++; level++;
+  hScore.textContent=score; hStar.textContent=star;
+  sync(); next(); startTimer();
+}
+
+function fail(){
+  level++; 
+  sync(); next(); startTimer(); 
+  question.style.color = "var(--bad)";
+  setTimeout(()=> question.style.color = "var(--txt)", 500);
+}
+
+function clearWS(){selected=[];render();}
+function goLobby(){location.reload();}
+</script>
+
+</body>
+</html>
