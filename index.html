@@ -3,15 +3,32 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Math Master SINKA - Pecahan Edition</title>
+<title>Math Master SINKA - Edisi Pecahan</title>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <style>
+  #howToPlay {
+    background: rgba(15, 23, 42, 0.95);
+    z-index: 150; /* Lebih tinggi dari lobby */
+}
+.guide-card {
+    background: var(--panel);
+    border: 2px solid var(--accent);
+    padding: 20px;
+    border-radius: 15px;
+    max-width: 320px;
+    text-align: left;
+}
+.guide-card h2 { color: var(--accent); margin-top: 0; text-align: center; }
+.guide-card li { margin-bottom: 10px; }
+  /* Efek Fade In untuk Overlay */
+.overlay { transition: opacity 0.3s ease; }
+.hidden { opacity: 0; pointer-events: none; }
 :root{
 --bg:#0f172a;--panel:#1e293b;--accent:#38bdf8;
---ok:#22c55e;--bad:#ef4444;--txt:#f8fafc
+--ok:#22c55e;--bad:#ef4444;--txt:#f8fafc;--warn:#f59e0b;--lock:#64748b;
 }
 *{box-sizing:border-box}
 body{
@@ -23,86 +40,126 @@ width:100%;background:var(--panel);padding:10px;
 display:flex;flex-wrap:wrap;justify-content:space-around;font-weight:bold;border-bottom: 2px solid var(--accent);
 }
 .badge{color:var(--accent)}
+.life{color:var(--bad)}
 main{flex:1;width:100%;max-width:480px;padding:10px;display:flex;flex-direction:column}
-.box{
-background:#02061755;border:1px dashed var(--accent);
-border-radius:12px;padding:15px;text-align:center;margin-bottom:8px;font-size: 1.1em;
-}
+.box{background:#02061755;border:1px dashed var(--accent);border-radius:12px;padding:15px;text-align:center;margin-bottom:8px;}
 .pool{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
-.token{
-background:var(--panel);border:1px solid var(--accent);
-border-radius:8px;padding:12px;font-weight:bold;cursor:pointer;
-user-select: none; transition: 0.2s;
-}
+.token{background:var(--panel);border:1px solid var(--accent);border-radius:8px;padding:12px;font-weight:bold;cursor:pointer;text-align:center;}
 .token:active{transform:scale(.9);background:var(--accent);color:#000}
 .controls{display:flex;gap:10px;margin-top:8px}
-button{
-flex:1;padding:12px;border:none;border-radius:8px;
-font-weight:bold;cursor:pointer;font-size: 1em;
-}
+button{flex:1;padding:12px;border:none;border-radius:8px;font-weight:bold;cursor:pointer;}
 .primary{background:var(--ok);color:white}
 .danger{background:var(--bad);color:white}
 .secondary{background:#334155;color:white}
-.overlay{
-position:fixed;inset:0;background:var(--bg);
-display:flex;flex-direction:column;align-items:center;
-justify-content:center;padding:20px;text-align:center;z-index: 100;
-}
+.overlay{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;z-index: 100;overflow-y: auto;}
 .hidden{display:none}
-select,input{padding:12px;border-radius:8px;width:260px;margin-bottom:12px;border:1px solid var(--accent);background:var(--panel);color:white;font-size: 1em;}
-label{margin-bottom:5px;font-size:0.9em;color:var(--accent);font-weight: bold;}
+select,input{padding:12px;border-radius:8px;width:280px;margin-bottom:12px;border:1px solid var(--accent);background:var(--panel);color:white;}
+.bonus-grid { display: grid; grid-template-columns: 1fr; gap: 10px; width: 280px; margin-top: 10px; }
+.bonus-item { background: var(--panel); padding: 10px; border-radius: 8px; border: 1px solid var(--lock); font-size: 0.9em; }
+.unlocked { border-color: var(--ok) !important; color: var(--ok); cursor: pointer; }
 </style>
 </head>
 
 <body>
 
 <header>
-<div>LEVEL <span id="hDiff" class="badge">-</span></div>
-<div>MODE <span id="hMode" class="badge">-</span></div>
-<div>LV <span id="hLevel" class="badge">1</span></div>
+<div>LV <span id="hLevel" class="badge">1</span>/20</div>
+<div>❤️ <span id="hLife" class="life">3</span></div>
 <div>⏱ <span id="hTime" class="badge">60</span></div>
 <div>⭐ <span id="hStar" class="badge">0</span></div>
 <div>SKOR <span id="hScore" class="badge">0</span></div>
 </header>
 
 <main>
+<div id="playerNameDisplay" style="text-align: center; font-size: 0.8em; margin-bottom: 5px; color: var(--accent);">Pemain: -</div>
 <div id="question" class="box">Memuat soal...</div>
 <div id="workspace" class="box" style="min-height: 70px; display: flex; justify-content: center; gap: 5px; flex-wrap: wrap; align-items: center;"></div>
 <div id="pool" class="pool"></div>
-
 <div class="controls">
 <button class="danger" onclick="clearWS()">HAPUS</button>
 <button class="primary" onclick="submit()">SUBMIT</button>
 </div>
-
-<button class="secondary" style="margin-top:10px" onclick="goLobby()">⬅ KEMBALI KE LOBBY</button>
+<button class="secondary" style="margin-top:10px" onclick="goLobby()">⬅ LOBBY</button>
 </main>
 
 <div id="lobby" class="overlay">
-<h1 style="color:var(--accent); margin-bottom: 5px;">MATH MASTER SINKA</h1>
-<p style="margin-bottom: 25px; opacity: 0.8;">Edisi Spesial: Pecahan & Desimal</p>
+  <div id="howToPlay" class="overlay hidden">
+    <div class="guide-card">
+        <h2>CARA BERMAIN</h2>
+        <ul>
+            <li><strong>Susun Jawaban:</strong> Klik angka dan simbol di bawah untuk menyusun operasi matematika yang benar.</li>
+            <li><strong>Tujuan:</strong> Hasil perhitungan Anda harus sesuai dengan target soal.</li>
+            <li><strong>Submit:</strong> Tekan tombol hijau jika sudah yakin.</li>
+            <li><strong>Hapus:</strong> Salah susun? Klik token di area kerja atau tombol hapus.</li>
+        </ul>
+        <button class="primary" onclick="closeGuideAndStart()" style="width: 100%;">SAYA MENGERTI!</button>
+    </div>
+</div>
+    <h1 style="color:var(--accent); margin: 0;">MATH MASTER SINKA</h1>
+    <div style="color:var(--warn); font-weight: bold; letter-spacing: 2px; margin-bottom: 5px;">EDISI PECAHAN</div>
+    
+    <p id="totalStarLabel" style="background: var(--warn); color: black; padding: 2px 10px; border-radius: 20px; font-weight: bold; margin: 10px 0;">Total Bintang: 0 ⭐</p>
+    
+    <input id="nameInp" placeholder="Nama Pemain..." onchange="saveName()">
 
-<label>Tingkat Kesulitan:</label>
-<select id="diffSel">
-<option value="Mudah">Mudah (Dasar)</option>
-<option value="Sedang">Sedang (Menengah)</option>
-<option value="Sulit">Sulit (Lanjut)</option>
-</select>
+    <label>Tingkat Kesulitan:</label>
+    <select id="diffSel" onchange="checkLocks()">
+        <option value="Mudah">Mudah</option>
+        <option value="Sedang" id="optSedang">Sedang (🔒 60⭐)</option>
+        <option value="Sulit" id="optSulit">Sulit (🔒 120⭐)</option>
+    </select>
 
-<label>Mode Soal:</label>
-<select id="modeSel">
-<option value="syntax">Sintaks (Operasi)</option>
-<option value="story">Soal Cerita</option>
-<option value="algebra">Aljabar (Variabel x)</option>
-</select>
+    <label>Mode Soal:</label>
+    <select id="modeSel" onchange="checkLocks()">
+        <option value="syntax">Sintaks</option>
+        <option value="story">Soal Cerita</option>
+        <option value="algebra" id="optAlgebra">Aljabar (Terkunci)</option>
+    </select>
 
-<input id="room" placeholder="Kode Room (Opsional)">
-<button class="primary" onclick="start()">MULAI BERMAIN</button>
+    <div id="buyAlgebraSection" class="hidden" style="margin-bottom: 10px;">
+        <button class="primary" id="btnBuyAlgebra" onclick="buyAlgebra()" style="font-size: 0.8em;"></button>
+    </div>
+
+    <input id="roomInp" placeholder="Kode Room (Kosongkan jika solo)">
+    <button class="primary" id="btnStart" onclick="start()">MULAI BERMAIN</button>
+
+    <div class="bonus-grid">
+        <div id="bonusReward" class="bonus-item">🏆 Penghargaan (🔒 180⭐/Skor)</div>
+        <div id="bonusGift" class="bonus-item">🎁 Hadiah (🔒 160⭐/Skor)</div>
+        <div id="bonusMotiv" class="bonus-item">💡 Motivasi (🔒 Aljabar Sulit)</div>
+    </div>
+
+    <button onclick="resetData()" style="background:none; color:var(--bad); border:none; margin-top:20px; cursor:pointer; font-size:0.8em;">[ RESET DATA ]</button>
+</div>
+
+<div id="endScreen" class="overlay hidden">
+    <div id="gameOverBox" style="background:var(--panel); padding:30px; border-radius:20px; border: 2px solid var(--accent);">
+        <h1 id="endTitle">GAME OVER</h1>
+        <p>Skor: <span id="finalScore" class="badge">0</span> | Bintang: <span id="finalStar" class="badge">0</span></p>
+        <button class="primary" onclick="goLobby()">LANJUTKAN</button>
+    </div>
 </div>
 
 <script>
-// ===== FIREBASE CONFIG =====
-firebase.initializeApp({
+  // Inisialisasi Suara (Menggunakan library bebas royalti)
+const sfx = {
+    click: new Audio('https://assets.mixkit.co/active_storage/sfx/2571/2571-preview.mp3'),
+    win: new Audio('https://assets.mixkit.co/active_storage/sfx/1435/1435-preview.mp3'),
+    lose: new Audio('https://assets.mixkit.co/active_storage/sfx/951/951-preview.mp3')
+};
+
+function playSfx(type) {
+    sfx[type].currentTime = 0;
+    sfx[type].play().catch(() => {}); // Catch jika browser blokir autoplay
+}
+// ===== CONFIGURATION =====
+const bonusFiles = {
+    reward: "https://drive.google.com/drive/folders/15APerhJJrlSQk0PSAsvrj36MHif5iXEc?usp=sharing",
+    gift: "https://drive.google.com/drive/folders/1FzGqDHIRXDJ1rQQyvaiewPTfB8Fs8SXq?usp=sharing",
+    motivation: "https://drive.google.com/drive/folders/1uHmN3nLihes0qf0rmQT1h7fMKr7bEQ7Q?usp=sharing"
+};
+
+const firebaseConfig = {
   apiKey: "AIzaSyBJtrSi3qUk1NC2oSXxWj0Rb_DGYg4GgRM",
   authDomain: "mathmastersinkav1-3.firebaseapp.com",
   databaseURL: "https://mathmastersinkav1-3-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -110,195 +167,330 @@ firebase.initializeApp({
   storageBucket: "mathmastersinkav1-3.appspot.com",
   messagingSenderId: "835319223750",
   appId: "1:835319223750:web:827661475e451bd4330ec7"
-});
+};
+
+firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// ===== STATE =====
-let roomId="", difficulty="", mode="";
-let level=1, score=0, star=0, time=60, timer;
-let selected=[], answer=null, target=null;
-let started=false;
+// ===== STATE & DATA =====
+let totalStar = parseInt(localStorage.getItem('s_star')) || 0;
+let maxScore = parseInt(localStorage.getItem('s_mscore')) || 0;
+let playerName = localStorage.getItem('s_name') || "";
+let unlockedAlgebra = JSON.parse(localStorage.getItem('s_alg')) || { Mudah: false, Sedang: false, Sulit: false };
 
-// ===== BANK SOAL PECAHAN =====
+let level=1, score=0, star=0, lives=3, timer, difficulty, mode, target, currentRoom;
+let selected = [];
+
+function saveProgress() {
+    localStorage.setItem('s_star', totalStar);
+    localStorage.setItem('s_mscore', maxScore);
+    localStorage.setItem('s_name', playerName);
+    localStorage.setItem('s_alg', JSON.stringify(unlockedAlgebra));
+}
+
+function checkLocks() {
+    totalStarLabel.textContent = `Total Bintang: ${totalStar} ⭐`;
+    const diff = diffSel.value;
+    optSedang.disabled = totalStar < 60;
+    optSulit.disabled = totalStar < 120;
+    const isAlgUnlocked = unlockedAlgebra[diff];
+    const price = diff === "Mudah" ? 10 : (diff === "Sedang" ? 20 : 30);
+    
+    if (modeSel.value === "algebra" && !isAlgUnlocked) {
+        buyAlgebraSection.classList.remove("hidden");
+        btnBuyAlgebra.textContent = `Buka Aljabar ${diff} (${price}⭐)`;
+        btnStart.disabled = true;
+        btnBuyAlgebra.disabled = totalStar < price;
+    } else {
+        buyAlgebraSection.classList.add("hidden");
+        btnStart.disabled = false;
+    }
+
+    updateBonusItem("bonusReward", totalStar >= 180 && maxScore >= 180, bonusFiles.reward);
+    updateBonusItem("bonusGift", totalStar >= 160 && maxScore >= 160, bonusFiles.gift);
+    updateBonusItem("bonusMotiv", unlockedAlgebra.Sulit, bonusFiles.motivation);
+}
+
+function updateBonusItem(id, condition, url) {
+    const el = document.getElementById(id);
+    if(condition) {
+        el.classList.add("unlocked");
+        el.onclick = () => window.open(url, "_blank");
+        el.innerHTML = el.innerHTML.replace(/🔒.*/, "✅ Klik Download");
+    }
+}
+
+function buyAlgebra() {
+    const diff = diffSel.value;
+    const price = diff === "Mudah" ? 10 : (diff === "Sedang" ? 20 : 30);
+    if(totalStar >= price) {
+        totalStar -= price;
+        unlockedAlgebra[diff] = true;
+        saveProgress();
+        checkLocks();
+        alert(`Aljabar ${diff} Terbuka!`);
+    }
+}
+
+function resetData() {
+    if(confirm("Hapus semua progres?")) {
+        localStorage.clear();
+        location.reload();
+    }
+}
+
+// ===== BANK SOAL =====
 const bank = {
   Mudah: {
     syntax: [
-      { q: "Buat hasil = 1/2 + 1/2", t: 1 },
-      { q: "Buat hasil = 4/2", t: 2 },
-      { q: "Buat hasil = 0.5 + 0.5", t: 1 },
-      { q: "Buat hasil = 3/4 - 1/4", t: 0.5 },
-      { q: "Buat hasil = 1/4 + 1/4", t: 0.5 }
+      {q:"Hasil 0.5 + 0.5", t:1}, {q:"Hasil 1/4 + 1/4", t:0.5}, {q:"Hasil 2 - 1.5", t:0.5}, {q:"Hasil 0.1 x 10", t:1}, {q:"Hasil 3 x 0.5", t:1.5}, 
+      {q:"Hasil 1 - 0.75", t:0.25}, {q:"Hasil 1/5 + 1/5", t:0.4}, {q:"Hasil 0.2 + 0.8", t:1}, {q:"Hasil 5 x 0.2", t:1}, {q:"Hasil 0.75 - 0.5", t:0.25}, 
+      {q:"Hasil 0.5 x 4", t:2}, {q:"Hasil 1.2 + 0.8", t:2}, {q:"Hasil 1/2 + 1/4", t:0.75}, {q:"Hasil 0.6 / 2", t:0.3}, {q:"Hasil 3 - 2.9", t:0.1}, 
+      {q:"Hasil 0.25 x 2", t:0.5}, {q:"Hasil 1/10 + 0.1", t:0.2}, {q:"Hasil 0.5 / 1", t:0.5}, {q:"Hasil 0.25 + 0.25", t:0.5}, {q:"Hasil 1.5 - 1.5", t:0}
     ],
     story: [
-      { q: "Ibu punya 1/2 kg gula, beli lagi 1/2 kg. Totalnya?", t: 1 },
-      { q: "Ada 1 pizza, dimakan 1/4 bagian. Sisa bagian?", t: 0.75 },
-      { q: "Setengah dari 10 adalah?", t: 5 }
+      {q:"Ibu beli 0.5kg gula dan 0.5kg tepung. Berat total?", t:1}, 
+      {q:"Punya 1 pizza, dimakan 1/2 bagian. Sisa pizza?", t:0.5}, 
+      {q:"Budi punya uang 10rb, dipakai 0.5 bagian. Sisa (rb)?", t:5}, 
+      {q:"Adik punya 1/4 potong kue, kakak beri 1/4 lagi?", t:0.5}, 
+      {q:"Jeruk 2kg dibagi ke 2 orang sama rata. Dapat (kg)?", t:1}, 
+      {q:"Botol berisi 0.5L air, ditambah 0.2L. Total air?", t:0.7}, 
+      {q:"Punya 1 cokelat, dimakan 0.25 bagian. Sisa?", t:0.75}, 
+      {q:"Apel 3kg dibagi ke 1 orang. Dapat (kg)?", t:3}, 
+      {q:"Lari 1.5km, lalu jalan 0.5km. Total jarak?", t:2}, 
+      {q:"Susu 0.1L dicampur 0.1L air. Total volume?", t:0.2}, 
+      {q:"Kue dipotong jadi 2. Ambil kedua potongan?", t:1}, 
+      {q:"Tabungan 10rb, ambil 0.1 bagian. Ambil (rb)?", t:1}, 
+      {q:"Kain 5m dipotong 4.5m. Sisa kain?", t:0.5}, 
+      {q:"Satu loyang bagi dua. Berapa bagian desimalnya?", t:0.5}, 
+      {q:"Beli 4 permen harga 0.25rb per biji. Total (rb)?", t:1}, 
+      {q:"3/4 pizza dalam bentuk desimal adalah?", t:0.75}, 
+      {q:"1/5 bagian dari 1 liter dalam desimal?", t:0.2}, 
+      {q:"Tinggi tanaman 1m, tumbuh 0.5m lagi?", t:1.5}, 
+      {q:"Bensin 2L, dipakai lari 1.8L. Sisa?", t:0.2}, 
+      {q:"Ibu punya 1 roti, dibagi ke 1 orang?", t:1}
     ],
     algebra: [
-      { q: "x + 1/2 = 1", a: 0.5 },
-      { q: "2x = 1", a: 0.5 },
-      { q: "x - 0.2 = 0.8", a: 1 }
+      {q:"x + 1 = 2", t:1}, {q:"x - 0.5 = 0", t:0.5}, {q:"2x = 10", t:5}, {q:"x + x = 2", t:1}, {q:"x / 2 = 0.5", t:1}, 
+      {q:"x + 0.2 = 1", t:0.8}, {q:"3x = 3", t:1}, {q:"x - 1 = 0.5", t:1.5}, {q:"x + 1/2 = 1", t:0.5}, {q:"2x = 1", t:0.5}, 
+      {q:"x - 2 = 3", t:5}, {q:"x / 1 = 4", t:4}, {q:"x + 0.75 = 1", t:0.25}, {q:"x - 0.1 = 0.9", t:1}, {q:"0.5x = 1", t:2}, 
+      {q:"x + 2 = 2.5", t:0.5}, {q:"x / 4 = 0.25", t:1}, {q:"x + x = 1", t:0.5}, {q:"x - 0.5 = 0.5", t:1}, {q:"10x = 20", t:2}
     ]
   },
   Sedang: {
     syntax: [
-      { q: "Buat hasil = 1/4 + 1/2", t: 0.75 },
-      { q: "Buat hasil = 2/5 × 5", t: 2 },
-      { q: "Buat hasil = 1/2 ÷ 1/2", t: 1 }
+      {q:"Hasil 0.25 + 0.5", t:0.75}, {q:"Hasil 1.5 x 1.5", t:2.25}, {q:"Hasil 0.5 + 0.75", t:1.25}, {q:"Hasil 1 / 8", t:0.125}, {q:"Hasil 5 x 0.5", t:2.5}, 
+      {q:"Hasil 0.3 + 0.3", t:0.6}, {q:"Hasil 0.9 x 2", t:1.8}, {q:"Hasil 3/4 sederhana", t:0.75}, {q:"Hasil 0.2 x 2", t:0.4}, {q:"Hasil 7 / 2", t:3.5}, 
+      {q:"Hasil 0.1 + 0.2", t:0.3}, {q:"Hasil 0.4 x 2", t:0.8}, {q:"Hasil 1.15 + 0", t:1.15}, {q:"Hasil 1 - 0.1", t:0.9}, {q:"Hasil 10 / 4", t:2.5}, 
+      {q:"Hasil 0.7 - 0.35", t:0.35}, {q:"Hasil 0.5 / 4", t:0.125}, {q:"Hasil 9 / 2", t:4.5}, {q:"Hasil 0.1 - 0.05", t:0.05}, {q:"Hasil 1 + 0.05", t:1.05}
     ],
     story: [
-      { q: "Ani minum 1/4 liter air, lalu 0.5 liter lagi. Total?", t: 0.75 },
-      { q: "Uang 10rb, dipakai 1/2-nya. Sisa uang?", t: 5 },
-      { q: "Tali 1m dipotong tiap 1/4m. Jadi berapa bagian?", t: 4 }
+      {q:"Beli 1/4kg kopi dan 0.5kg gula. Total berat?", t:0.75}, 
+      {q:"Kayu 2.5m dibagi menjadi 5 bagian. Per bagian?", t:0.5}, 
+      {q:"Gelas isi 1/2 air. Diminum 1/2 bagian itu. Sisa?", t:0.25}, 
+      {q:"Uang 10rb, beli permen 1/2-nya. Sisa (rb)?", t:5}, 
+      {q:"Tali 1m dipotong 1/4m. Dapat berapa potong?", t:4}, 
+      {q:"0.75 meter kain ditambah 1/4 meter. Total?", t:1}, 
+      {q:"Setengah dari 0.5 liter susu adalah?", t:0.25}, 
+      {q:"Beli 3/4kg jeruk dan 0.25kg apel. Total?", t:1}, 
+      {q:"Ibu bagi 2 pizza ke 5 anak. Satu anak dapat?", t:0.4}, 
+      {q:"2 loyang kue dikali 0.75 bagian. Total?", t:1.5}, 
+      {q:"Tabungan 100rb, ambil 1/5 bagian. Ambil (rb)?", t:20}, 
+      {q:"Lebar meja 0.2m dikali 0.2m. Luas?", t:0.04}, 
+      {q:"Air 1.5L dibagi ke 3 botol sama rata?", t:0.5}, 
+      {q:"Bentuk desimal dari 3/5 adalah?", t:0.6}, 
+      {q:"Punya 1 apel, dipotong dan dibuang 0.125. Sisa?", t:0.875}, 
+      {q:"Adik lari 2.5km, lalu lari lagi 2.5km?", t:5}, 
+      {q:"Seperempat dari 2 jam adalah (jam)?", t:0.5}, 
+      {q:"Suhu 0.8 derajat naik setengah derajat?", t:1.3}, 
+      {q:"Uang 1rb, ambil 1/10 bagian. Dapat (rb)?", t:0.1}, 
+      {q:"Beras 5kg dimasak 1/2 bagian. Sisa (kg)?", t:2.5}
     ],
     algebra: [
-      { q: "1/2x = 5", a: 10 },
-      { q: "3/4x = 3", a: 4 },
-      { q: "x ÷ 2 = 0.5", a: 1 }
+      {q:"1/2x = 5", t:10}, {q:"3/4x = 3", t:4}, {q:"x : 2 = 0.5", t:1}, {q:"2x + 1 = 2", t:0.5}, {q:"x - 1/4 = 0.75", t:1}, 
+      {q:"0.2x = 4", t:20}, {q:"x / 0.5 = 10", t:5}, {q:"x + 1.5 = 3", t:1.5}, {q:"4x = 2", t:0.5}, {q:"x - 0.25 = 0.5", t:0.75}, 
+      {q:"3x + 1 = 4", t:1}, {q:"x / 2 + 1 = 2", t:2}, {q:"x - 2/5 = 0.6", t:1}, {q:"0.1x = 1", t:10}, {q:"x + x + 1 = 2", t:0.5}, 
+      {q:"5x = 2.5", t:0.5}, {q:"x / 3 = 0.33", t:0.99}, {q:"x - 1.1 = 0.9", t:2}, {q:"0.75x = 3", t:4}, {q:"x + 0.125 = 1.125", t:1}
     ]
   },
   Sulit: {
     syntax: [
-      { q: "Buat hasil = (1/2 + 1/4) × 4", t: 3 },
-      { q: "Buat hasil = 0.75 ÷ 1/4", t: 3 },
-      { q: "Buat hasil = 1/2 + 1/3 + 1/6", t: 1 }
+      {q:"Hasil (1/2 + 1/4) x 4", t:3}, {q:"Hasil 0.75 / (1/4)", t:3}, {q:"Hasil 1/2 + 1/3 + 1/6", t:1}, {q:"Hasil 2.5 x 4", t:10}, {q:"Hasil 0.125 x 8", t:1}, 
+      {q:"Hasil 1.5 x 1.5", t:2.25}, {q:"Hasil 10 / 0.5", t:20}, {q:"Hasil 3/4 x 12", t:9}, {q:"Hasil 0.2 x 0.2 x 10", t:0.4}, {q:"Hasil 5 / 0.25", t:20}, 
+      {q:"Hasil 1.1 x 1.1", t:1.21}, {q:"Hasil 0.875 x 1", t:0.875}, {q:"Hasil 1/2 / 4", t:0.125}, {q:"Hasil 9 / 4.5", t:2}, {q:"Hasil 0.1 + 0.2 + 0.3", t:0.6}, 
+      {q:"Hasil 100 x 0.01", t:1}, {q:"Hasil 1.25 x 0.8", t:1}, {q:"Hasil 2.2 x 10", t:22}, {q:"Hasil 1 / 4", t:0.25}, {q:"Hasil 1.5 + 1.5", t:3}
     ],
     story: [
-      { q: "Tanah 100m, 1/4 kolam, 1/2 taman. Sisa m²?", t: 25 },
-      { q: "Gaji 4jt, 1/5 tabung, 1/2 makan. Sisa (jt)?", t: 1.2 },
-      { q: "Setengah dari sepertiga adalah?", t: 0.16 }
+      {q:"Tanah 100m. 1/4 kolam, 1/2 taman. Sisa m?", t:25}, 
+      {q:"Gaji 4jt. 1/5 tabung, 1/2 makan. Sisa (jt)?", t:1.2}, 
+      {q:"Kecepatan 1/2km per 1/3 jam. Jarak 1 jam?", t:1.5}, 
+      {q:"Emas 0.75gr dikali 0.75 bagian. Berat (gr)?", t:0.5625}, 
+      {q:"10L air, bocor 0.2L/jam. Sisa 5 jam?", t:9}, 
+      {q:"Diskon 1/4 dari harga 50rb. Bayar (rb)?", t:37.5}, 
+      {q:"Waktu 1.5 jam berapa menit?", t:90}, 
+      {q:"Beli 3/4kg telur dan 1/2kg terigu. Total?", t:1.25}, 
+      {q:"0.1 dikali 0.1 dikali 100?", t:1}, 
+      {q:"Jalan 1km, sudah 750m. Sisa (km)?", t:0.25}, 
+      {q:"2.5 ton dikurangi 500kg. Sisa (ton)?", t:2}, 
+      {q:"3 buku harga @12.5rb. Total (rb)?", t:37.5}, 
+      {q:"Pagar 10m, cat 1/5 bagian per hari. Selesai?", t:5}, 
+      {q:"Bentuk desimal dari 1/8 adalah?", t:0.125}, 
+      {q:"0.333 dikali 3 mendekati angka?", t:1}, 
+      {q:"Kue dibagi 8 orang sama rata. Satu orang?", t:0.125}, 
+      {q:"Total dari 1/2 + 1/4 + 1/8?", t:0.875}, 
+      {q:"Satu hari (24 jam) dikali 1/4 bagian?", t:6}, 
+      {q:"Akar desimal dari 0.25 adalah?", t:0.5}, 
+      {q:"Uang 100rb dibagi ke 0.25 bagian?", t:400}
     ],
     algebra: [
-      { q: "2x + 0.5 = 2.5", a: 1 },
-      { q: "1/2x + 1/4x = 3", a: 4 },
-      { q: "3(x + 0.5) = 4.5", a: 1 }
+      {q:"2x + 0.5 = 2.5", t:1}, {q:"1/2x + 1/4x = 3", t:4}, {q:"3(x + 0.5) = 4.5", t:1}, {q:"x^2 = 0.25", t:0.5}, {q:"1/x = 4", t:0.25}, 
+      {q:"2x - 1.5 = 0.5", t:1}, {q:"x / 0.1 = 50", t:5}, {q:"0.75x + 0.25 = 1", t:1}, {q:"1.5x = 4.5", t:3}, {q:"x + 1/8 = 1.125", t:1}, 
+      {q:"4x + 2 = 10", t:2}, {q:"x / 2 - 0.5 = 1", t:3}, {q:"0.5x = 0.25", t:0.5}, {q:"2(x - 1) = 0.5", t:1.25}, {q:"x + 0.33 = 1", t:0.67}, 
+      {q:"10x + 5 = 7.5", t:0.25}, {q:"x^2 = 1", t:1}, {q:"x / 5 = 0.2", t:1}, {q:"3x = 0.75", t:0.25}, {q:"x + 1.23 = 2", t:0.77}
     ]
   }
 };
 
-// ===== GAME LOGIC =====
+// ===== CORE ENGINE =====
+// Fungsi start yang baru (hanya memvalidasi nama & persiapan)
 function start(){
-  started=true;
-  difficulty=diffSel.value;
-  mode=modeSel.value;
-  roomId=room.value || "public";
-  
-  lobby.classList.add("hidden");
-  hDiff.textContent=difficulty.toUpperCase();
-  hMode.textContent=mode.toUpperCase();
-  
-  listen();
-  next(); 
-  startTimer();
+    if(!playerName) return alert("Isi nama dulu!");
+    
+    // Tampilkan panduan sebelum masuk ke soal
+    document.getElementById('howToPlay').classList.remove('hidden');
 }
 
-function listen(){
-  db.ref("rooms/"+roomId).on("value",s=>{
-    const d=s.val(); if(!d) return;
-    hScore.textContent=d.score??score;
-    hStar.textContent=d.star??star;
-    hLevel.textContent=d.level??level;
-    if(d.level) level = d.level;
-  });
+// Fungsi baru untuk benar-benar memulai permainan
+function closeGuideAndStart() {
+    document.getElementById('howToPlay').classList.add('hidden');
+    
+    difficulty = diffSel.value; 
+    mode = modeSel.value;
+    currentRoom = roomInp.value || "solo_" + Math.random().toString(36).substr(2, 5);
+    
+    level=1; score=0; star=0; lives=3;
+    playerNameDisplay.textContent = "Pemain: " + playerName;
+
+    // Inisialisasi Firebase
+    db.ref("rooms/" + currentRoom).set({ level, score, star, lives, mode, difficulty });
+    
+    lobby.classList.add("hidden"); 
+    next(); 
+    startTimer();
+    playSfx('click');
 }
 
-function sync(){
-  db.ref("rooms/"+roomId).update({level,score,star});
+function updateHeader() {
+    hLevel.textContent=level; hLife.textContent=lives; hScore.textContent=score; hStar.textContent=star;
 }
 
 function startTimer(){
-  clearInterval(timer);
-  time=60; hTime.textContent=time;
-  timer=setInterval(()=>{
-    time--; 
-    hTime.textContent=time;
-    if(time<=0) fail();
-  },1000);
+    clearInterval(timer); let time=60; hTime.textContent=time;
+    timer=setInterval(()=>{
+        time--; hTime.textContent=time;
+        if(time<=0) fail();
+    },1000);
 }
 
 function next(){
-  const poolSoal = bank[difficulty][mode];
-  const q = poolSoal[(level-1) % poolSoal.length];
-  
-  question.textContent = q.q;
-  answer = q.a ?? null; 
-  target = q.t ?? null;
-  hLevel.textContent = level;
-  genPool();
+    if(level > 20) return win();
+    const q = bank[difficulty][mode][level-1];
+    question.textContent = q.q; target = q.t;
+    updateHeader(); 
+    genPool();
 }
 
 function genPool(){
-  pool.innerHTML=""; workspace.innerHTML=""; selected=[];
-  // Menambahkan simbol . dan / ke karakter dasar
-  let chars = ["0","1","2","3","4","5","6","7","8","9","+","-","*","/","=", "."];
-  
-  if(mode === "algebra") chars.push("x");
-  
-  // Ambil 12 token secara acak
-  chars.sort(()=>Math.random()-.5).slice(0,12).forEach(c=>{
-    let d=document.createElement("div");
-    d.className="token"; d.textContent=c;
-    d.onclick=()=>{selected.push(c);render();}
-    pool.appendChild(d);
-  });
+    pool.innerHTML=""; workspace.innerHTML=""; selected=[];
+    let mandatory = ["0","1","2","3","4","5","+", "-", "/", ".", "="];
+    if(mode === "algebra") mandatory.push("x");
+    if(difficulty !== "Mudah") mandatory.push("*");
+    let combined = [...mandatory, "6","7","8","9", "(", ")"].sort(()=>Math.random()-.5).slice(0,16);
+    combined.forEach(c=>{
+        let d=document.createElement("div"); d.className="token"; d.textContent=c;
+        d.onclick=()=>{selected.push(c);render();playSfx('click');}
+        pool.appendChild(d);
+    });
 }
 
 function render(){
-  workspace.innerHTML="";
-  selected.forEach((c,i)=>{
-    let d=document.createElement("div");
-    d.className="token"; d.textContent=c;
-    d.onclick=()=>{selected.splice(i,1);render();}
-    workspace.appendChild(d);
-  });
+    workspace.innerHTML="";
+    selected.forEach((c,i)=>{
+        let d=document.createElement("div"); d.className="token"; d.textContent=c;
+        d.onclick=()=>{selected.splice(i,1);render();}
+        workspace.appendChild(d);
+    });
 }
 
 function submit(){
-  if(!started || selected.length === 0) return;
-  
-  let s = selected.join("");
-  
-  if(mode === "algebra"){
-    // Pengecekan angka desimal atau bulat
-    if(parseFloat(s) === answer) return ok();
-    let clean = s.replace("x=","").replace("x","");
-    if(parseFloat(clean) === answer) return ok();
-    return fail();
-  }
+    let s = selected.join("");
+    if(!s) return;
+    
+    // Cek apakah ada karakter ilegal untuk keamanan tambahan
+    if (/[^0-9+\-*/().x=]/.test(s)) return fail();
 
-  // Evaluasi matematika untuk Sintaks/Story
-  let formula = s.replace(/×/g,"*").replace(/÷/g,"/");
-  if(!formula.includes("=")) return fail();
-  
-  let [l, r] = formula.split("=");
-  try {
-    let valL = eval(l);
-    let valR = eval(r);
-    // Toleransi sedikit untuk angka desimal (floating point)
-    if(Math.abs(valL - valR) < 0.01 && Math.abs(valL - target) < 0.01) {
-      ok();
-    } else {
-      fail();
+    try {
+        // Membersihkan string: hapus 'x' (karena di bank soal aljabar x adalah variabel target)
+        // dan hapus '=' jika pemain memasukkannya di akhir
+        let expression = s.replace(/x/g, "").replace(/=/g, "");
+        
+        // Eval bisa error jika sintaks salah (misal "5++5")
+        let val = eval(expression); 
+        
+        // Cek apakah hasilnya angka valid
+        if(val === Infinity || isNaN(val)) {
+            fail();
+            return;
+        }
+
+        // Toleransi presisi desimal (Floating point math)
+        if(Math.abs(val - target) < 0.01) {
+            ok();
+        } else {
+            fail();
+        }
+    } catch(e){
+        // Jika eval error karena sintaks salah, anggap gagal
+        fail();
     }
-  } catch { fail(); }
 }
 
-function ok(){
-  score+=10; star++; level++;
-  hScore.textContent=score; hStar.textContent=star;
-  sync(); next(); startTimer();
+function ok(){ 
+    score+=10; star++; level++;
+    db.ref("rooms/" + currentRoom).update({ level, score, star });
+    if(level > 20) win(); else { next(); startTimer(); }
+    playSfx('win'); 
 }
 
 function fail(){
-  level++; 
-  sync(); next(); startTimer(); 
-  question.style.color = "var(--bad)";
-  setTimeout(()=> question.style.color = "var(--txt)", 500);
+    lives--; 
+    star = Math.max(0, star - 1); 
+    updateHeader();
+    if(lives <= 0) endGame("GAME OVER"); else { clearWS(); genPool(); }
+    playSfx('lose');
+}
+
+function win(){ endGame("SELAMAT!"); }
+
+function endGame(t){
+    clearInterval(timer);
+    totalStar += star;
+    if(score > maxScore) maxScore = score;
+    saveProgress();
+    endTitle.textContent = t;
+    finalScore.textContent = score; 
+    finalStar.textContent = star;
+    endScreen.classList.remove("hidden");
+    db.ref("rooms/" + currentRoom).off();
 }
 
 function clearWS(){selected=[];render();}
 function goLobby(){location.reload();}
-</script>
+function saveName(){playerName = nameInp.value; saveProgress();}
 
+// Init
+nameInp.value = playerName;
+checkLocks();
+</script>
 </body>
 </html>
